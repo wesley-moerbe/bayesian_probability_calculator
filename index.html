@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generic Bayesian Probability Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1050px;
+      margin: auto;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 16px;
+      background: #fafafa;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+    }
+
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 12px;
+      margin-right: 8px;
+      padding: 11px 16px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #1f4e79;
+      color: white;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #666;
+    }
+
+    button.danger {
+      background: #8a2d2d;
+    }
+
+    button:hover {
+      filter: brightness(0.92);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 18px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f5;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 18px;
+      border-radius: 10px;
+      background: #eef7ee;
+      border: 1px solid #c7e6c7;
+      font-size: 1.25rem;
+      font-weight: bold;
+    }
+
+    .note {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    .small {
+      font-size: 0.85rem;
+      color: #555;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e7eef5;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Generic Bayesian Probability Calculator</h1>
+    <p>
+      Use this tool to update the probability of a hypothesis as new evidence is learned. Start with a prior probability, then add evidence using either a likelihood ratio or evidence reliability inputs.
+    </p>
+
+    <h2>1. Hypothesis and Prior</h2>
+    <div class="grid">
+      <div class="card">
+        <label for="hypothesis">Hypothesis</label>
+        <textarea id="hypothesis">The hypothesis is true.</textarea>
+        <div class="small">Example: “The report is accurate,” “The target is present,” or “The system will fail.”</div>
+      </div>
+      <div class="card">
+        <label for="prior">Prior Probability (%)</label>
+        <input id="prior" type="number" value="50" min="0.01" max="99.99" step="0.01">
+        <div class="small">Your starting estimate before considering the new evidence.</div>
+      </div>
+    </div>
+
+    <h2>2. Add Evidence</h2>
+    <div class="grid">
+      <div class="card">
+        <label for="evidenceName">Evidence Description</label>
+        <input id="evidenceName" type="text" value="New evidence">
+      </div>
+      <div class="card">
+        <label for="entryMode">Input Mode</label>
+        <select id="entryMode" onchange="toggleMode()">
+          <option value="lr">Likelihood Ratio</option>
+          <option value="conditional">Conditional Probabilities</option>
+        </select>
+        <div class="small">Likelihood ratio is the easiest way to update repeatedly.</div>
+      </div>
+    </div>
+
+    <div id="lrInputs" class="grid">
+      <div class="card">
+        <label for="likelihoodRatio">Likelihood Ratio</label>
+        <input id="likelihoodRatio" type="number" value="2" min="0.01" step="0.01">
+        <div class="small">
+          LR &gt; 1 supports the hypothesis. LR &lt; 1 weakens it. LR = 1 has no effect.
+        </div>
+      </div>
+    </div>
+
+    <div id="conditionalInputs" class="grid hidden">
+      <div class="card">
+        <label for="pEvidenceGivenTrue">P(Evidence | Hypothesis True) (%)</label>
+        <input id="pEvidenceGivenTrue" type="number" value="80" min="0.01" max="99.99" step="0.01">
+      </div>
+      <div class="card">
+        <label for="pEvidenceGivenFalse">P(Evidence | Hypothesis False) (%)</label>
+        <input id="pEvidenceGivenFalse" type="number" value="40" min="0.01" max="99.99" step="0.01">
+      </div>
+    </div>
+
+    <button onclick="addEvidence()">Add Evidence and Update</button>
+    <button class="secondary" onclick="recalculate()">Recalculate</button>
+    <button class="danger" onclick="resetAll()">Reset</button>
+
+    <div class="result" id="posteriorResult">Posterior Probability: --</div>
+
+    <h2>3. Evidence Log</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Evidence</th>
+          <th>Likelihood Ratio</th>
+          <th>Prior Before</th>
+          <th>Posterior After</th>
+          <th>Interpretation</th>
+        </tr>
+      </thead>
+      <tbody id="evidenceTable"></tbody>
+    </table>
+
+    <h2>4. How to Think About Likelihood Ratios</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Likelihood Ratio</th>
+          <th>Plain-English Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>0.1</td><td>Strong evidence against the hypothesis</td></tr>
+        <tr><td>0.5</td><td>Moderate evidence against the hypothesis</td></tr>
+        <tr><td>1.0</td><td>No change</td></tr>
+        <tr><td>2.0</td><td>Moderate evidence for the hypothesis</td></tr>
+        <tr><td>5.0</td><td>Strong evidence for the hypothesis</td></tr>
+        <tr><td>10.0</td><td>Very strong evidence for the hypothesis</td></tr>
+      </tbody>
+    </table>
+
+    <p class="note">
+      Calculation method: probability is converted to odds, multiplied by the likelihood ratio, then converted back to probability. This makes it easy to update repeatedly as additional evidence arrives.
+    </p>
+  </div>
+
+  <script>
+    let evidenceLog = [];
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function percentToProbability(value) {
+      return clamp(Number(value) / 100, 0.0001, 0.9999);
+    }
+
+    function probabilityToOdds(probability) {
+      return probability / (1 - probability);
+    }
+
+    function oddsToProbability(odds) {
+      return odds / (1 + odds);
+    }
+
+    function bayesianUpdate(priorProbability, likelihoodRatio) {
+      const priorOdds = probabilityToOdds(priorProbability);
+      const posteriorOdds = priorOdds * likelihoodRatio;
+      return oddsToProbability(posteriorOdds);
+    }
+
+    function formatPercent(probability) {
+      return `${(probability * 100).toFixed(2)}%`;
+    }
+
+    function interpretLR(lr) {
+      if (lr < 0.2) return "Strongly weakens hypothesis";
+      if (lr < 0.8) return "Weakens hypothesis";
+      if (lr <= 1.25) return "Minimal change";
+      if (lr < 3) return "Moderately supports hypothesis";
+      if (lr < 8) return "Strongly supports hypothesis";
+      return "Very strongly supports hypothesis";
+    }
+
+    function toggleMode() {
+      const mode = document.getElementById("entryMode").value;
+      document.getElementById("lrInputs").classList.toggle("hidden", mode !== "lr");
+      document.getElementById("conditionalInputs").classList.toggle("hidden", mode !== "conditional");
+    }
+
+    function getLikelihoodRatio() {
+      const mode = document.getElementById("entryMode").value;
+
+      if (mode === "lr") {
+        return clamp(Number(document.getElementById("likelihoodRatio").value), 0.0001, 10000);
+      }
+
+      const pEvidenceGivenTrue = percentToProbability(document.getElementById("pEvidenceGivenTrue").value);
+      const pEvidenceGivenFalse = percentToProbability(document.getElementById("pEvidenceGivenFalse").value);
+      return pEvidenceGivenTrue / pEvidenceGivenFalse;
+    }
+
+    function getCurrentPosterior() {
+      let currentProbability = percentToProbability(document.getElementById("prior").value);
+
+      for (const item of evidenceLog) {
+        currentProbability = bayesianUpdate(currentProbability, item.lr);
+      }
+
+      return currentProbability;
+    }
+
+    function addEvidence() {
+      const evidenceName = document.getElementById("evidenceName").value || "Evidence";
+      const lr = getLikelihoodRatio();
+      evidenceLog.push({ name: evidenceName, lr: lr });
+      render();
+    }
+
+    function recalculate() {
+      render();
+    }
+
+    function resetAll() {
+      evidenceLog = [];
+      document.getElementById("prior").value = 50;
+      document.getElementById("hypothesis").value = "The hypothesis is true.";
+      render();
+    }
+
+    function render() {
+      let runningProbability = percentToProbability(document.getElementById("prior").value);
+      let tableHTML = "";
+
+      evidenceLog.forEach((item, index) => {
+        const before = runningProbability;
+        const after = bayesianUpdate(before, item.lr);
+        runningProbability = after;
+
+        tableHTML += `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.name}</td>
+            <td><span class="pill">${item.lr.toFixed(2)}</span></td>
+            <td>${formatPercent(before)}</td>
+            <td>${formatPercent(after)}</td>
+            <td>${interpretLR(item.lr)}</td>
+          </tr>
+        `;
+      });
+
+      document.getElementById("evidenceTable").innerHTML = tableHTML;
+      document.getElementById("posteriorResult").innerText = `Posterior Probability: ${formatPercent(runningProbability)}`;
+    }
+
+    toggleMode();
+    render();
+  </script>
+</body>
+</html>
